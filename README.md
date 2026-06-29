@@ -320,17 +320,4 @@ The dashboard renders:
 
 ---
 
-## 🎓 Academic Notes
 
-This project demonstrates:
-1. **Ensemble learning** — combining unsupervised (IF) with supervised (XGBoost)
-2. **Explainable AI** — SHAP values for model interpretability
-3. **Full-stack ML deployment** — FastAPI + React + PostgreSQL
-4. **Security engineering** — JWT RBAC, bcrypt, CORS
-5. **Data engineering** — CICIDS feature preprocessing pipeline
-
-**References**
-- CICIDS 2017: Sharafaldin et al., *Toward Generating a New Intrusion Detection Dataset*, ICISSP 2018
-- XGBoost: Chen & Guestrin, *XGBoost: A Scalable Tree Boosting System*, KDD 2016
-- Isolation Forest: Liu et al., *Isolation Forest*, ICDM 2008
-- SHAP: Lundberg & Lee, *A Unified Approach to Interpreting Model Predictions*, NeurIPS 2017
