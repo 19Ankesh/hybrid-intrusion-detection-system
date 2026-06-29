@@ -1,0 +1,72 @@
+{
+  "xgboost": {
+    "accuracy": 89.84,
+    "precision": 90.12,
+    "recall": 89.84,
+    "f1": 89.61,
+    "confusion_matrix": [
+      [
+        4641,
+        33,
+        43,
+        39,
+        44
+      ],
+      [
+        115,
+        821,
+        12,
+        8,
+        4
+      ],
+      [
+        112,
+        14,
+        574,
+        11,
+        9
+      ],
+      [
+        138,
+        7,
+        9,
+        627,
+        19
+      ],
+      [
+        130,
+        4,
+        6,
+        28,
+        552
+      ]
+    ],
+    "classes": [
+      "BENIGN",
+      "DATA_EXFILTRATION",
+      "MALICIOUS_INSIDER",
+      "PRIVILEGE_ABUSE",
+      "SABOTAGE"
+    ]
+  },
+  "isolation_forest": {
+    "accuracy": 90.88,
+    "precision": 91.43,
+    "recall": 88.72,
+    "f1": 90.05,
+    "confusion_matrix": [
+      [
+        4762,
+        38
+      ],
+      [
+        364,
+        2836
+      ]
+    ],
+    "classes": [
+      "Normal",
+      "Insider Threat"
+    ]
+  }
+}
