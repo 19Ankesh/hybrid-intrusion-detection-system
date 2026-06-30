@@ -213,6 +213,10 @@ export default function Dashboard() {
   const [simLoading,setSimLoading] = useState("");
   const [toast,setToast]           = useState(null);
 
+  // live capture status
+  const [capture, setCapture] = useState(null);
+  const [captureLoading, setCaptureLoading] = useState(false);
+
   const FEATURES = [
     "logon_count_day","logon_after_hours","failed_logon_count",
     "files_accessed_count","sensitive_files_count","usb_events_count",
@@ -230,6 +234,30 @@ export default function Dashboard() {
 
   const showToast=(msg,type="success")=>{ setToast({msg,type}); setTimeout(()=>setToast(null),3500); };
 
+  const fetchCapture = useCallback(async () => {
+    try {
+      const res = await API.get("/capture/status");
+      setCapture(res.data);
+    } catch (e) {
+      console.error("Failed to fetch capture status", e);
+    }
+  }, []);
+
+  const handleToggleCapture = async () => {
+    if (!capture) return;
+    setCaptureLoading(true);
+    try {
+      const action = capture.running ? "stop" : "start";
+      const res = await API.post(`/capture/${action}`);
+      showToast(res.data.message);
+      fetchCapture();
+    } catch (e) {
+      showToast(e.response?.data?.detail || "Action failed", "error");
+    } finally {
+      setCaptureLoading(false);
+    }
+  };
+
   const fetchAll = useCallback(async()=>{
     try {
       const [sRes,aRes] = await Promise.all([API.get("/data/stats"), API.get("/data/alerts?limit=200")]);
@@ -244,10 +272,14 @@ export default function Dashboard() {
       });
       prevCount.current = newAlerts.length;
       setAlerts(newAlerts);
+      
+      // Fetch live sniffer status
+      fetchCapture();
+      
       if(user?.role==="admin"){ const lRes=await API.get("/data/logs?limit=50"); setLogs(lRes.data); }
     } catch(e){ console.error(e); }
     finally{ setLoading(false); }
-  },[user]);
+  },[user, fetchCapture]);
 
   const fetchMetrics = useCallback(async()=>{
     try{ const r=await API.get("/data/metrics"); setMetrics(r.data); }
@@ -542,22 +574,64 @@ export default function Dashboard() {
         {tab==="overview"&&(
           <div style={{animation:"fadeIn 0.2s ease"}}>
             <h2 style={S.pageTitle}>System Overview</h2>
-            {/* Threat level */}
-            {stats&&(()=>{
-              const hp=(stats.severity_counts?.High||0)/Math.max(stats.total_alerts,1);
-              const lvl=hp>0.3?"CRITICAL":hp>0.1?"WARNING":"SAFE";
-              const cfg={CRITICAL:{color:"#f87171",bg:"rgba(248,113,113,0.08)",icon:"🔴"},
-                         WARNING:{color:"#fbbf24",bg:"rgba(251,191,36,0.08)",icon:"🟡"},
-                         SAFE:{color:"#4ade80",bg:"rgba(74,222,128,0.08)",icon:"🟢"}}[lvl];
-              return <div style={{background:cfg.bg,border:`1px solid ${cfg.color}33`,borderRadius:10,
-                padding:"10px 16px",display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
-                <span style={{fontSize:18}}>{cfg.icon}</span>
-                <div>
-                  <div style={{color:cfg.color,fontWeight:700,fontSize:13}}>Threat Level: {lvl}</div>
-                  <div style={{color:T.muted,fontSize:11}}>{stats.severity_counts?.High||0} high-severity out of {stats.total_alerts} total alerts</div>
+            {/* Threat level & Live Sniffer Grid */}
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
+              {stats&&(()=>{
+                const hp=(stats.severity_counts?.High||0)/Math.max(stats.total_alerts,1);
+                const lvl=hp>0.3?"CRITICAL":hp>0.1?"WARNING":"SAFE";
+                const cfg={CRITICAL:{color:"#f87171",bg:"rgba(248,113,113,0.08)",icon:"🔴"},
+                           WARNING:{color:"#fbbf24",bg:"rgba(251,191,36,0.08)",icon:"🟡"},
+                           SAFE:{color:"#4ade80",bg:"rgba(74,222,128,0.08)",icon:"🟢"}}[lvl];
+                return <div style={{background:cfg.bg,border:`1px solid ${cfg.color}33`,borderRadius:10,
+                  padding:"12px 18px",display:"flex",alignItems:"center",gap:12,height:"100%"}}>
+                  <span style={{fontSize:24}}>{cfg.icon}</span>
+                  <div>
+                    <div style={{color:cfg.color,fontWeight:700,fontSize:14}}>Threat Level: {lvl}</div>
+                    <div style={{color:T.muted,fontSize:12,marginTop:2}}>{stats.severity_counts?.High||0} high-severity out of {stats.total_alerts} total alerts</div>
+                  </div>
+                </div>;
+              })()}
+
+              {capture && (
+                <div style={{
+                  background: capture.running ? "rgba(74,222,128,0.05)" : "rgba(248,113,113,0.05)",
+                  border: `1px solid ${capture.running ? "#4ade8033" : "#f8717133"}`,
+                  borderRadius: 10, padding: "12px 18px", display: "flex", justifyContent: "space-between", alignItems: "center", height: "100%"
+                }}>
+                  <div style={{display:"flex",alignItems:"center",gap:12}}>
+                    <span style={{
+                      width: 10, height: 10, borderRadius: "50%",
+                      background: capture.running ? "#4ade80" : "#f87171",
+                      boxShadow: capture.running ? "0 0 8px #4ade80" : "none",
+                      animation: capture.running ? "pulse 1.5s infinite" : "none"
+                    }} />
+                    <div>
+                      <div style={{color: capture.running ? "#4ade80" : "#f87171", fontWeight: 700, fontSize: 14}}>
+                        Live Packet Sniffer: {capture.running ? "Active" : "Stopped"}
+                      </div>
+                      <div style={{color: T.muted, fontSize: 12, marginTop: 2}}>
+                        Interface: <span style={{color:T.blue,fontWeight:600}}>{capture.interface || "auto"}</span> | Packets Processed: <span style={{color:T.indigo,fontWeight:600}}>{capture.packets_seen?.toLocaleString()}</span>
+                      </div>
+                    </div>
+                  </div>
+                  {user?.role === "admin" && (
+                    <button
+                      onClick={handleToggleCapture}
+                      disabled={captureLoading}
+                      style={{
+                        padding: "6px 12px", borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: "pointer",
+                        background: capture.running ? "rgba(248,113,113,0.12)" : "rgba(74,222,128,0.12)",
+                        color: capture.running ? "#f87171" : "#4ade80",
+                        border: `1px solid ${capture.running ? "rgba(248,113,113,0.3)" : "rgba(74,222,128,0.3)"}`,
+                        transition: "all 0.15s"
+                      }}
+                    >
+                      {captureLoading ? "⏳" : capture.running ? "Stop Sniffer" : "Start Sniffer"}
+                    </button>
+                  )}
                 </div>
-              </div>;
-            })()}
+              )}
+            </div>
             <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:14}}>
               <StatCard icon="🚨" label="Total Alerts"   value={stats?.total_alerts?.toLocaleString()}   accent={T.blue}   loading={loading}/>
               <StatCard icon="⚠️" label="Anomalies"      value={stats?.total_anomalies?.toLocaleString()} accent={T.orange} loading={loading} sub="Isolation Forest"/>
